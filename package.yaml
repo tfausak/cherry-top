@@ -1,7 +1,7 @@
 category: Hardware
 description: Cherry Top controls <https://www.blinkstick.com BlinkStick>s.
 executables:
-  blinkstick:
+  cherry-top:
     dependencies: cherry-top
     ghc-options:
     - -rtsopts
