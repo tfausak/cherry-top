@@ -28,7 +28,7 @@ license: MIT
 license-file: LICENSE.markdown
 maintainer: Taylor Fausak
 name: cherry-top
-synopsis: ! "\U0001F6A8 Control BlinkSticks"
+synopsis: Control BlinkSticks
 tests:
   cherry-top-doctest:
     dependencies:
