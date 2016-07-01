@@ -40,4 +40,13 @@ tests:
     - -with-rtsopts=-N
     main: DocTest.hs
     source-dirs: test-suite
+  cherry-top-readme:
+    dependencies:
+    - base
+    - cherry-top
+    - markdown-unlit ==0.4.*
+    - text
+    - usb
+    ghc-options: -pgmL markdown-unlit
+    main: README.lhs
 version: '0.0.0'
