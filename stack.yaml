@@ -1,5 +1,9 @@
-allow-newer: true
 extra-deps:
-- usb-1.3.0.3
 - bindings-libusb-1.4.5.0
+packages:
+- '.'
+- extra-dep: true
+  location:
+    commit: 4f7f8b9cbd97b697fa2a56f63bf05463faa24323
+    git: git@github.com:tfausak/usb.git
 resolver: nightly-2016-07-01
