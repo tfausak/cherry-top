@@ -1,5 +1,5 @@
 category: Hardware
-description: Cherry Top controls BlinkSticks.
+description: Cherry Top controls <https://www.blinkstick.com BlinkStick>s.
 executables:
   blinkstick:
     dependencies: cherry-top
@@ -29,4 +29,15 @@ license-file: LICENSE.markdown
 maintainer: Taylor Fausak
 name: cherry-top
 synopsis: ! "\U0001F6A8 Control BlinkSticks"
+tests:
+  cherry-top-doctest:
+    dependencies:
+    - base
+    - doctest ==0.11.*
+    ghc-options:
+    - -rtsopts
+    - -threaded
+    - -with-rtsopts=-N
+    main: DocTest.hs
+    source-dirs: test-suite
 version: '0.0.0'
