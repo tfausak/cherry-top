@@ -1,6 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
--- | Cherry Top controls <https://www.blinkstick.com BlinkStick>s.
+-- | Cherry Top controls <https://www.blinkstick.com BlinkStick>s. It is a thin
+-- wrapper around "System.USB".
 module CherryTop
     ( main
     , withBlinkStick
@@ -33,6 +34,17 @@ import qualified Text.Read as Read
 import qualified Text.Show as Show
 
 
+-- | With 0 args, prints out the serial number for each connected BlinkStick.
+--
+-- > $ cherry-top
+-- > Just "BS012345-3.0"
+--
+-- With 6 args, sets the color of one LED on one BlinkStick.
+--
+-- > # cherry-top serial-number channel index red green blue
+-- > $ cherry-top BS012345-3.0  0       1     2   3     4
+--
+-- Any other number of args is an error.
 main
     :: IO.IO ()
 main = do
@@ -71,7 +83,7 @@ main = do
 -- BlinkStick.
 --
 -- >>> context <- USB.newCtx
--- >>> let serialNumber = Text.pack "BS000000-0.0"
+-- >>> let serialNumber = Text.pack "BS012345-3.0"
 -- >>> let turnOff blinkStick = setColor blinkStick 0 0 0 0 0
 -- >>> withBlinkStick context serialNumber turnOff
 -- Nothing
@@ -107,7 +119,7 @@ withBlinkStick context serialNumber action = do
 -- 'withBlinkStick'.
 --
 -- >>> context <- USB.newCtx
--- >>> let serialNumber = Text.pack "BS000000-0.0"
+-- >>> let serialNumber = Text.pack "BS012345-3.0"
 -- >>> getBlinkStick context serialNumber
 -- Nothing
 getBlinkStick
@@ -191,7 +203,7 @@ productId = do
 --
 -- The returned serial number will follow the format @"BSxxxxxx-m.n"@. For
 -- example: @"BS012345-3.0"@. The @BS@ part is a literal that stands for
--- "BlinkStick". The next 6 characters (@xxxxxx@) are a 0-padded integer like
+-- BlinkStick. The next 6 characters (@xxxxxx@) are a 0-padded integer like
 -- @012345@. The final part (@m@ and @n@) is the version number, like @3.0@.
 getSerialNumber
     :: USB.DeviceHandle

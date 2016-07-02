@@ -5,8 +5,13 @@ Cherry Top controls [BlinkStick][]s.
 Example usage as an executable:
 
 ``` shell
-# cherry-top SERIAL-NUMBER CHANNEL INDEX RED GREEN BLUE
-$ cherry-top BS000000-0.0 0x00 0x00 0x00 0x00 0x00
+# Print the serial number for each connected BlinkStick
+$ cherry-top
+Just "BS012345-3.0"
+
+# Set the color of one LED on one BlinkStick.
+# cherry-top serial-number channel index red green blue
+$ cherry-top BS012345-3.0  0       1     2   3     4
 ```
 
 Example usage as a library:
@@ -37,7 +42,7 @@ main = do
 
   -- Find a BlinkStick by its serial number and turn the LED off.
   Control.Monad.void (do
-    let serialNumber = Data.Text.pack "BS000000-0.0"
+    let serialNumber = Data.Text.pack "BS012345-3.0"
     CherryTop.withBlinkStick context serialNumber (\ blinkStick -> do
       let channel = 0x00
       let index = 0x00
