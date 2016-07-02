@@ -15,6 +15,7 @@ module CherryTop
 
 import Data.Bool ((&&))
 import Data.Eq ((==))
+import Data.Monoid ((<>))
 
 import qualified Control.Applicative as Applicative
 import qualified Control.Exception as Exception
@@ -29,23 +30,37 @@ import qualified System.Environment as Environment
 import qualified System.IO as IO
 import qualified System.USB as USB
 import qualified Text.Read as Read
+import qualified Text.Show as Show
 
 
-main :: IO.IO ()
+main
+    :: IO.IO ()
 main = do
-    [a, b, c, d, e, f] <- Environment.getArgs
-    let serialNumber = Text.pack a
-    let channel = Read.read b
-    let index = Read.read c
-    let red = Read.read d
-    let green = Read.read e
-    let blue = Read.read f
-
     context <- USB.newCtx
     USB.setDebug context USB.PrintWarnings
 
-    Monad.void (withBlinkStick context serialNumber (\ blinkStick -> do
-        setColor blinkStick channel index red green blue))
+    args <- Environment.getArgs
+    case args of
+
+        [] -> do
+            blinkSticks <- getBlinkSticks context
+            Monad.forM_ blinkSticks (\ blinkStick -> do
+                USB.withDeviceHandle blinkStick (\ handle -> do
+                    serialNumber <- getSerialNumber handle
+                    IO.print serialNumber))
+
+        [a, b, c, d, e, f] -> do
+            let serialNumber = Text.pack a
+            let channel = Read.read b
+            let index = Read.read c
+            let red = Read.read d
+            let green = Read.read e
+            let blue = Read.read f
+            Monad.void (withBlinkStick context serialNumber (\ blinkStick -> do
+                setColor blinkStick channel index red green blue))
+
+        _ -> do
+            Monad.fail ("Unexpected arguments: " <> Show.show args)
 
 
 -- | Gets a BlinkStick by its serial number and performs some action with it.
