@@ -1,4 +1,5 @@
+resolver: lts-12.0
+
 extra-deps:
-- bindings-libusb-1.4.5.0
-- usb-1.3.0.4
-resolver: nightly-2016-07-01
+  - bindings-libusb-1.4.5.0
+  - usb-1.3.0.6

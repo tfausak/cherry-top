@@ -1,37 +1,27 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-
 -- | Cherry Top controls <https://www.blinkstick.com BlinkStick>s. It is a thin
 -- wrapper around "System.USB".
 module CherryTop
-    ( main
-    , withBlinkStick
-    , getBlinkStick
-    , getBlinkSticks
-    , isBlinkStick
-    , vendorId
-    , productId
-    , getSerialNumber
-    , setColor
-    ) where
+  ( main
+  , withBlinkStick
+  , getBlinkStick
+  , getBlinkSticks
+  , isBlinkStick
+  , vendorId
+  , productId
+  , getSerialNumber
+  , setColor
+  )
+where
 
-import Data.Bool ((&&))
-import Data.Eq ((==))
-import Data.Monoid ((<>))
-
-import qualified Control.Applicative as Applicative
 import qualified Control.Exception as Exception
 import qualified Control.Monad as Monad
-import qualified Data.Bool as Bool
 import qualified Data.ByteString as Bytes
-import qualified Data.Maybe as Maybe
 import qualified Data.Text as Text
 import qualified Data.Vector as Vector
 import qualified Data.Word as Word
 import qualified System.Environment as Environment
-import qualified System.IO as IO
 import qualified System.USB as USB
 import qualified Text.Read as Read
-import qualified Text.Show as Show
 
 
 -- | With 0 args, prints out the serial number for each connected BlinkStick.
@@ -45,34 +35,36 @@ import qualified Text.Show as Show
 -- > $ cherry-top BS012345-3.0  0       1     2   3     4
 --
 -- Any other number of args is an error.
-main
-    :: IO.IO ()
+main :: IO ()
 main = do
-    context <- USB.newCtx
-    USB.setDebug context USB.PrintWarnings
+  context <- USB.newCtx
+  USB.setDebug context USB.PrintWarnings
 
-    args <- Environment.getArgs
-    case args of
+  args <- Environment.getArgs
+  case args of
 
-        [] -> do
-            blinkSticks <- getBlinkSticks context
-            Monad.forM_ blinkSticks (\ blinkStick -> do
-                USB.withDeviceHandle blinkStick (\ handle -> do
-                    serialNumber <- getSerialNumber handle
-                    IO.print serialNumber))
+    [] -> do
+      blinkSticks <- getBlinkSticks context
+      Monad.forM_ blinkSticks
+        $ \blinkStick -> USB.withDeviceHandle blinkStick $ \handle -> do
+            serialNumber <- getSerialNumber handle
+            print serialNumber
 
-        [a, b, c, d, e, f] -> do
-            let serialNumber = Text.pack a
-            let channel = Read.read b
-            let index = Read.read c
-            let red = Read.read d
-            let green = Read.read e
-            let blue = Read.read f
-            Monad.void (withBlinkStick context serialNumber (\ blinkStick -> do
-                setColor blinkStick channel index red green blue))
+    [a, b, c, d, e, f] -> do
+      let serialNumber = Text.pack a
+      channel <- readWord8 b
+      index <- readWord8 c
+      red <- readWord8 d
+      green <- readWord8 e
+      blue <- readWord8 f
+      Monad.void $ withBlinkStick context serialNumber $ \blinkStick ->
+        setColor blinkStick channel index red green blue
 
-        _ -> do
-            Monad.fail ("Unexpected arguments: " <> Show.show args)
+    _ -> fail $ "Unexpected arguments: " <> show args
+
+
+readWord8 :: Monad m => String -> m Word.Word8
+readWord8 = either fail pure . Read.readEither
 
 
 -- | Gets a BlinkStick by its serial number and performs some action with it.
@@ -88,27 +80,14 @@ main = do
 -- >>> withBlinkStick context serialNumber turnOff
 -- Nothing
 withBlinkStick
-    :: USB.Ctx
-    -> Text.Text -- ^ serial number
-    -> (USB.DeviceHandle -> IO.IO a)
-    -> IO.IO (Maybe.Maybe a)
-withBlinkStick context serialNumber action = do
-    let acquire = getBlinkStick context serialNumber
-    let release maybeHandle = do
-            case maybeHandle of
-                Maybe.Nothing -> do
-                    Applicative.pure ()
-                Maybe.Just handle -> do
-                    USB.closeDevice handle
-    let perform maybeHandle = do
-            case maybeHandle of
-                Maybe.Nothing -> do
-                    Applicative.pure Maybe.Nothing
-                Maybe.Just handle -> do
-                    result <- action handle
-                    Applicative.pure (Maybe.Just result)
-
-    Exception.bracket acquire release perform
+  :: USB.Ctx
+  -> Text.Text -- ^ serial number
+  -> (USB.DeviceHandle -> IO a)
+  -> IO (Maybe a)
+withBlinkStick context serialNumber action = Exception.bracket
+  (getBlinkStick context serialNumber)
+  (maybe (pure ()) USB.closeDevice)
+  (maybe (pure Nothing) (fmap Just . action))
 
 
 -- | Gets a BlinkStick by its serial number.
@@ -123,26 +102,29 @@ withBlinkStick context serialNumber action = do
 -- >>> getBlinkStick context serialNumber
 -- Nothing
 getBlinkStick
-    :: USB.Ctx
-    -> Text.Text -- ^ serial number
-    -> IO.IO (Maybe.Maybe USB.DeviceHandle)
+  :: USB.Ctx
+  -> Text.Text -- ^ serial number
+  -> IO (Maybe USB.DeviceHandle)
 getBlinkStick context serialNumber = do
-    let step maybeHandle blinkStick = do
-            case maybeHandle of
-                Maybe.Just _handle -> do
-                    Applicative.pure maybeHandle
-                Maybe.Nothing -> do
-                    handle <- USB.openDevice blinkStick
-                    sn <- getSerialNumber handle
-                    if sn == Maybe.Just serialNumber
-                    then do
-                        Applicative.pure (Maybe.Just handle)
-                    else do
-                        USB.closeDevice handle
-                        Applicative.pure Maybe.Nothing
+  blinkSticks <- getBlinkSticks context
+  Vector.foldM (getBlinkStickStep serialNumber) Nothing blinkSticks
 
-    blinkSticks <- getBlinkSticks context
-    Vector.foldM step Maybe.Nothing blinkSticks
+
+getBlinkStickStep
+  :: Text.Text
+  -> Maybe USB.DeviceHandle
+  -> USB.Device
+  -> IO (Maybe USB.DeviceHandle)
+getBlinkStickStep serialNumber maybeHandle blinkStick = case maybeHandle of
+  Just _ -> pure maybeHandle
+  Nothing -> do
+    handle <- USB.openDevice blinkStick
+    sn <- getSerialNumber handle
+    if sn == Just serialNumber
+      then pure $ Just handle
+      else do
+        USB.closeDevice handle
+        pure Nothing
 
 
 -- | Gets all of the USB devices that are BlinkSticks.
@@ -150,53 +132,41 @@ getBlinkStick context serialNumber = do
 -- >>> context <- USB.newCtx
 -- >>> getBlinkSticks context
 -- ...
-getBlinkSticks
-    :: USB.Ctx
-    -> IO.IO (Vector.Vector USB.Device)
+getBlinkSticks :: USB.Ctx -> IO (Vector.Vector USB.Device)
 getBlinkSticks context = do
-    let predicate device = do
-            description <- USB.getDeviceDesc device
-            Applicative.pure (isBlinkStick description)
-
-    devices <- USB.getDevices context
-    Vector.filterM predicate devices
+  devices <- USB.getDevices context
+  Vector.filterM (fmap isBlinkStick . USB.getDeviceDesc) devices
 
 
 -- | Determines if a USB device is a BlinkStick.
 --
--- >>> let notABlinkStick = USB.DeviceDesc (0, 0, 0, 0) 0 0 0 0 0 0 (0, 0, 0, 0) Maybe.Nothing Maybe.Nothing Maybe.Nothing 0
+-- >>> let notABlinkStick = USB.DeviceDesc (0, 0, 0, 0) 0 0 0 0 0 0 (0, 0, 0, 0) Nothing Nothing Nothing 0
 -- >>> isBlinkStick notABlinkStick
 -- False
 --
--- >>> let aBlinkStick = USB.DeviceDesc (0, 0, 0, 0) 0 0 0 0 vendorId productId (0, 0, 0, 0) Maybe.Nothing Maybe.Nothing Maybe.Nothing 0
+-- >>> let aBlinkStick = USB.DeviceDesc (0, 0, 0, 0) 0 0 0 0 vendorId productId (0, 0, 0, 0) Nothing Nothing Nothing 0
 -- >>> isBlinkStick aBlinkStick
 -- True
-isBlinkStick
-    :: USB.DeviceDesc
-    -> Bool.Bool
-isBlinkStick description = do
-    USB.deviceVendorId description == vendorId &&
-        USB.deviceProductId description == productId
+isBlinkStick :: USB.DeviceDesc -> Bool
+isBlinkStick description =
+  (USB.deviceVendorId description == vendorId)
+    && (USB.deviceProductId description == productId)
 
 
 -- | BlinkStick's vendor ID.
 --
 -- >>> vendorId
 -- 8352
-vendorId
-    :: Word.Word16
-vendorId = do
-    0x20a0
+vendorId :: Word.Word16
+vendorId = 0x20a0
 
 
 -- | BlinkStick's product ID.
 --
 -- >>> productId
 -- 16869
-productId
-    :: Word.Word16
-productId = do
-    0x41e5
+productId :: Word.Word16
+productId = 0x41e5
 
 
 -- | Gets a BlinkStick's serial number.
@@ -205,19 +175,12 @@ productId = do
 -- example: @"BS012345-3.0"@. The @BS@ part is a literal that stands for
 -- BlinkStick. The next 6 characters (@xxxxxx@) are a 0-padded integer like
 -- @012345@. The final part (@m@ and @n@) is the version number, like @3.0@.
-getSerialNumber
-    :: USB.DeviceHandle
-    -> IO.IO (Maybe.Maybe Text.Text)
+getSerialNumber :: USB.DeviceHandle -> IO (Maybe Text.Text)
 getSerialNumber handle = do
-    let device = USB.getDevice handle
-    description <- USB.getDeviceDesc device
-
-    case USB.deviceSerialNumberStrIx description of
-        Maybe.Nothing -> do
-            Applicative.pure Maybe.Nothing
-        Maybe.Just index -> do
-            serialNumber <- USB.getStrDescFirstLang handle index 12
-            Applicative.pure (Maybe.Just serialNumber)
+  description <- USB.getDeviceDesc $ USB.getDevice handle
+  case USB.deviceSerialNumberStrIx description of
+    Nothing -> pure Nothing
+    Just index -> Just <$> USB.getStrDescFirstLang handle index 12
 
 
 -- | Sets a BlinkStick's color.
@@ -228,22 +191,22 @@ getSerialNumber handle = do
 -- The red, green, and blue values can range from @0@ (dark) to @255@ (light).
 -- So @0 0 0@ is black, @0 255 0@ is green, and @255 255 255@ is white.
 setColor
-    :: USB.DeviceHandle
-    -> Word.Word8 -- ^ channel
-    -> Word.Word8 -- ^ index
-    -> Word.Word8 -- ^ red
-    -> Word.Word8 -- ^ green
-    -> Word.Word8 -- ^ blue
-    -> IO.IO ()
+  :: USB.DeviceHandle
+  -> Word.Word8 -- ^ channel
+  -> Word.Word8 -- ^ index
+  -> Word.Word8 -- ^ red
+  -> Word.Word8 -- ^ green
+  -> Word.Word8 -- ^ blue
+  -> IO ()
 setColor handle channel index red green blue = do
-    let setup = USB.ControlSetup
-            { USB.controlSetupRequestType = USB.Class
-            , USB.controlSetupRecipient = USB.ToDevice
-            , USB.controlSetupRequest = 0x09
-            , USB.controlSetupValue = 0x0005
-            , USB.controlSetupIndex = 0x0000
-            }
-    let input = Bytes.pack [0x01, channel, index, red, green, blue]
-    let timeout = USB.noTimeout
-
-    USB.writeControlExact handle setup input timeout
+  let
+    setup = USB.ControlSetup
+      { USB.controlSetupRequestType = USB.Class
+      , USB.controlSetupRecipient = USB.ToDevice
+      , USB.controlSetupRequest = 0x09
+      , USB.controlSetupValue = 0x0005
+      , USB.controlSetupIndex = 0x0000
+      }
+    input = Bytes.pack [0x01, channel, index, red, green, blue]
+    timeout = USB.noTimeout
+  USB.writeControlExact handle setup input timeout

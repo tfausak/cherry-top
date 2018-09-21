@@ -24,6 +24,7 @@ the latter but not from the former.
 import qualified CherryTop
 import qualified Control.Monad
 import qualified Data.Text
+import qualified Data.Word
 import qualified System.USB
 main :: IO ()
 main = do
@@ -44,11 +45,11 @@ main = do
   Control.Monad.void (do
     let serialNumber = Data.Text.pack "BS012345-3.0"
     CherryTop.withBlinkStick context serialNumber (\ blinkStick -> do
-      let channel = 0x00
-      let index = 0x00
-      let red = 0x00
-      let green = 0x00
-      let blue = 0x00
+      let channel = 0x00 :: Data.Word.Word8
+      let index = 0x00 :: Data.Word.Word8
+      let red = 0x00 :: Data.Word.Word8
+      let green = 0x00 :: Data.Word.Word8
+      let blue = 0x00 :: Data.Word.Word8
       CherryTop.setColor blinkStick channel index red green blue))
 ```
 
